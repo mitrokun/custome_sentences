@@ -1,0 +1,105 @@
+SetPreset:
+  action:
+    service: linkplay.preset
+    data:
+      preset: "{{ plpreset }}"
+      entity_id: media_player.soundbedroom
+  speech:
+    text: "Включаю"
+    
+PM25:
+  action:
+    []
+  speech:
+    text: "{{ states.sensor|selectattr('attributes.device_class', 'defined')|selectattr('attributes.device_class', 'eq', 'pm25')|map(attribute='state')|max|int|format(morph='миллионная доля', as_text=true) }}"
+    
+CO2statfull:
+  action:
+    []
+  speech:
+    text: >-
+        {% set value = states.sensor|selectattr('attributes.device_class', 'defined')|
+        selectattr('attributes.device_class', 'eq', 'carbon_dioxide')|
+        selectattr('entity_id', 'in', area_entities('зал' if area == 'зале' else 'зал'))|map(attribute='state')|max %}
+        {{ value|format(morph='частица', as_text=true)~" на миллион" }}
+CO2statroom:
+  action:
+    []
+  speech:
+    text: >-
+        {%if (states.sensor|selectattr('attributes.device_class', 'defined')|
+         selectattr('attributes.device_class', 'eq', 'carbon_dioxide')|
+         selectattr('entity_id', 'in', area_entities(area))|map(attribute='entity_id')|list|count|int) > 0 %}  
+          {% set value = states.sensor|selectattr('attributes.device_class', 'defined')|
+          selectattr('attributes.device_class', 'eq', 'carbon_dioxide')|
+          selectattr('entity_id', 'in', area_entities(area))|map(attribute='state')|max %}
+          {{ value|format(morph='частица', as_text=true)~" на миллион" }}
+        {%else%}
+          {{"В помещении нет дакчика" }}
+        {%endif%}
+
+tempstatfull:
+  action:
+    []
+  speech:
+    text: >-
+        {% set area_alt = area %}
+        {% set areaalias = {
+        "зале": "зал",
+        "кухне": "кухня",
+        "коридоре": "коридор",
+        "кабинете": "кабинет",
+        "спальне": "спальня",
+        "ванной": "ванная"
+          } %}
+        "Температура в {{ area }} {{  states.sensor|selectattr('attributes.device_class', 'eq', 'temperature')|
+        selectattr('entity_id', 'in', area_entities( areaalias[area_alt] if area_alt in areaalias else area))|
+        map(attribute='state')|min|int|format(morph='градус', as_text=false)  }} " 
+tempstatroom:
+  action:
+    []
+  speech:
+    text: >-
+        "В комнате {{  states.sensor|selectattr('attributes.device_class', 'eq', 'temperature')|
+        selectattr('entity_id', 'in', area_entities(area))|
+        map(attribute='state')|min|int|format(morph='градус', as_text=false)  }} " 
+time:
+  action:
+    []
+  speech:
+    text: >-
+      {% set minutes = (now().timestamp())|timestamp_custom('%-M') |int(0) %} 
+      {{(now().timestamp())|timestamp_custom('%-H')|int|format(morph='час', as_text=false)}} 
+      {%- if minutes > 0 -%}
+        {{' ' ~ minutes|int|format(morph='минута', as_text=true)}}
+      {%- endif %}
+
+volumeset:
+  action:
+    action: media_player.volume_set
+    data:
+      volume_level: "{{ volume / 100.0 }}"
+    target:
+      entity_id: '{{ media_player }}'
+  speech:
+    text: "Установлено"
+
+wut:
+  action:
+    service: rest_command.wiki_how
+    response_variable: wiki_response
+    enabled: true
+    data:
+      name: "{{ wiki  |regex_replace(find=' ', replace='_') }}"
+  speech:
+    text: "{{ wiki_response['content']['extract'] }}"
+
+#BrightnessSet:
+#  action:
+#    service: light.turn_on
+#    data:
+#      brightness_pct: "{{brightness}}"
+#    target:
+#      area_id: "{{ area_id(area) }}"
+#  speech:
+#    text: "Ok"
