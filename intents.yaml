@@ -1,0 +1,109 @@
+#/homeassistant/custom_sentences/ru/intents.yaml
+language: "ru"
+intents:
+  HassNevermind:
+    data:
+      - sentences:
+          - "Отмена"
+          - "Стоп"
+          - "Хватит"
+          - "Достаточно"
+
+  SetPreset:
+    data:
+      - sentences:
+          - "(включи|установи|запусти)[ть] {plpreset} (плейлист|плэй лист)"
+          - "(включи|установи|запусти)[ть] (плейлист|плэй лист) [номер] {plpreset}"
+
+  HassLightSet:
+    data:
+      - sentences:
+          - "яркость <name> [на ]<brightness>"
+        response: "brightness"
+        requires_context:
+          domain: "light"
+  CO2statfull:
+    data:
+      - sentences:
+          - "[какой ]уровень углекислого газа <area>"
+  CO2statroom:
+    data:
+      - sentences:
+          - "[какой ]уровень углекислого газа [в комнате]"
+        requires_context:
+          area:
+            slot: true
+  PM25:
+    data:
+      - sentences:
+          - "сколько [в воздухе ]пыли"
+          - "какой уровень пыли [в комнате]"
+#  BrightnessSet:
+#    data:
+#      - sentences:
+#          - "яркость[ на] <brightness>"
+#        requires_context:
+#          area:
+#            slot: true
+  tempstatfull:
+    data:
+      - sentences:
+          - "[какая] температура <area>"
+  tempstatroom:
+    data:
+      - sentences:
+          - "какая температура [в комнате]"
+        requires_context:
+          area:
+            slot: true
+  time:
+    data:
+      - sentences:
+          - "сколько время|который час"
+  wut:
+    data:
+      - sentences:
+          - "Что такое {wiki}"
+  volumeset:
+    data:
+      - sentences:
+          - "громкость {media_player} [на ]{volume}"
+
+
+lists:
+  media_player:
+    values:
+      - in: "(колонки)"
+        out: "media_player.soundbedroom"
+      - in: "(акустики)"
+        out: "media_player.soundzal"
+      - in: "(динамика)"
+        out: "media_player.soundkchn"
+      - in: "(радио)"
+        out: "media_player.soundoffice"
+  volume:
+    range:
+      from: 0
+      to: 100
+  plpreset:
+    values:
+      - in: "(один|первый|техно)"
+        out: 1
+      - in: "(два|второй|минимал)"
+        out: 2
+      - in: "(три|третий|классика)"
+        out: 3
+      - in: "(четыре|четвертый|основной)"
+        out: 4
+      - in: "(пять|пятый|открыти(е|я) недели)"
+        out: 5
+      - in: "(шесть|шествой|открыти(е|я) дня)"
+        out: 6
+      - in: "(семь|седьмой|джаз)"
+        out: 7
+      - in: "(восемь|восьмой)"
+        out: 8
+      - in: "(девять|девятый|инди рок)"
+        out: 9
+      - in: "(десять|десятый|радар новинок)"
+        out: 10
