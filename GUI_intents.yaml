@@ -1,0 +1,95 @@
+#Turning on the main light in the room(using a label)
+alias: light_HassTurnOn_main
+description: ""
+triggers:
+  - trigger: conversation
+    command:
+      - Включи свет
+conditions: []
+actions:
+  - if:
+      - condition: template
+        value_template: >-
+          {{ (states.light |selectattr('entity_id', 'in',
+          label_entities('mainlight'))|selectattr('entity_id', 'in',
+          area_entities(area_id(trigger.device_id))) |map(attribute='entity_id')
+          |list |count) > 0}}
+    then:
+      - action: light.turn_on
+        metadata: {}
+        data: {}
+        target:
+          entity_id: >-
+            {{ states.light |selectattr('entity_id', 'in',
+            label_entities('mainlight'))|selectattr('entity_id', 'in',
+            area_entities(area_id(trigger.device_id)))
+            |map(attribute='entity_id') |list }}
+    else:
+      - action: light.turn_on
+        metadata: {}
+        data: {}
+        target:
+          area_id: "{{ area_id(trigger.device_id) }}"
+  - set_conversation_response: Включил
+mode: single
+
+#Processing the promt with the conversation that is assigned to the assistant. The name of the assist pipeline and the conversation must be the same.
+#The initial data is extracted using a python script that parses the site and writes the values to the news10 variable.
+alias: voice-news2
+description: ""
+triggers:
+  - trigger: conversation
+    command: Какие новости
+conditions: []
+actions:
+  - action: shell_command.update_news
+    metadata: {}
+    data: {}
+    response_variable: news10
+  - action: conversation.process
+    metadata: {}
+    data:
+      agent_id: >-
+        {% set agent = states.conversation |
+        selectattr('attributes.friendly_name','search',
+        states('select.'~device_attr(trigger.device_id, "name")~'_assistant'))|
+        map(attribute='entity_id')| first %} {{ agent if agent is defined else
+        "conversation.openaicompatible"}}
+      text: >-
+        {{news10.stdout}}. Изучи эти новости и скомпонуй короткий пересказ,
+        объединив связанные события.
+    response_variable: news
+  - set_conversation_response: "{{ news.response.speech.plain.speech }}"
+mode: single
+
+
+---
+#!/usr/bin/env python3
+import requests
+from bs4 import BeautifulSoup
+
+url = "https://www.mk.ru/news/"
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+}
+
+response = requests.get(url, headers=headers)
+response.encoding = 'utf-8'
+soup = BeautifulSoup(response.text, 'html.parser')
+
+news_list = []
+
+desired_indices = list(range(1, 6)) + list(range(8, 13))
+
+for n in desired_indices:
+    selector = f"section:nth-child(4) > ul > li:nth-child({n}) > a > h3"
+    news_item = soup.select_one(selector)
+    if news_item:
+        news_title = news_item.get_text(strip=True)
+        news_list.append(news_title)
+    else:
+        news_list.append(f"Новость {n} не найдена")
+
+news_string = "\n".join([f"{i}. {title}" for i, title in enumerate(news_list, 1)])
+print(news_string)
+---
