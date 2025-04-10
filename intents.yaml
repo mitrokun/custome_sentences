@@ -8,7 +8,9 @@ intents:
           - "Стоп"
           - "Хватит"
           - "Достаточно"
-
+          - "Пока пока"
+          - "Ясно понятно"
+          - "Спасибо"
   SetPreset:
     data:
       - sentences:
@@ -19,9 +21,11 @@ intents:
     data:
       - sentences:
           - "яркость <name> [на ]<brightness>"
+          - "<name> [на ]<brightness>"
         response: "brightness"
         requires_context:
           domain: "light"
+
   CO2statfull:
     data:
       - sentences:
@@ -38,13 +42,7 @@ intents:
       - sentences:
           - "сколько [в воздухе ]пыли"
           - "какой уровень пыли [в комнате]"
-#  BrightnessSet:
-#    data:
-#      - sentences:
-#          - "яркость[ на] <brightness>"
-#        requires_context:
-#          area:
-#            slot: true
+
   tempstatfull:
     data:
       - sentences:
@@ -59,16 +57,32 @@ intents:
   time:
     data:
       - sentences:
-          - "сколько время|который час"
-  wut:
-    data:
-      - sentences:
-          - "Что такое {wiki}"
+          - "сколько (время|времени)|который час"
+
   volumeset:
     data:
       - sentences:
           - "громкость {media_player} [на ]{volume}"
 
+#  wut:
+#    data:
+#      - sentences:
+#          - "Что такое {wiki}"
+
+#  BrightnessSet:
+#    data:
+#      - sentences:
+#          - "яркость[ на] <brightness>"
+#        requires_context:
+#          area:
+#            slot: true
+#        slots:
+#          domain: light
+
+#  ledstate:
+#    data:
+#      - sentences:
+#          - "светит ли {led}"
 
 lists:
   media_player:
@@ -81,10 +95,14 @@ lists:
         out: "media_player.soundkchn"
       - in: "(радио)"
         out: "media_player.soundoffice"
-  volume:
-    range:
-      from: 0
-      to: 100
+      - in: "(плеера)"
+        out: "media_player.soundwm_2"
+
+#  volume:
+#    range:
+#      from: 0
+#      to: 100
+
   plpreset:
     values:
       - in: "(один|первый|техно)"
@@ -95,7 +113,7 @@ lists:
         out: 3
       - in: "(четыре|четвертый|основной)"
         out: 4
-      - in: "(пять|пятый|открыти(е|я) недели)"
+      - in: "(пять|пятый|ани|аннин|анны)"
         out: 5
       - in: "(шесть|шествой|открыти(е|я) дня)"
         out: 6
@@ -107,3 +125,4 @@ lists:
         out: 9
       - in: "(десять|десятый|радар новинок)"
         out: 10
+
