@@ -1,3 +1,28 @@
+#Contextual satellite volume control (for esphome devices). Need to unify media player entity names
+alias: Voice-sat-volume
+description: ""
+triggers:
+  - trigger: conversation
+    command:
+      - громкость спутника на {vlm}
+conditions: []
+actions:
+  - action: media_player.volume_set
+    metadata: {}
+    data:
+      volume_level: "{{ trigger.slots.vlm | int / 100 }}"
+    target:
+      entity_id: "{{ 'media_player.'~device_attr(trigger.device_id, 'name')| lower }}"
+    enabled: true
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 2
+      milliseconds: 0
+  - set_conversation_response: Поставил
+    enabled: true
+mode: single
+
 #Turning on the main light in the room(using a label)
 alias: light_HassTurnOn_main
 description: ""
