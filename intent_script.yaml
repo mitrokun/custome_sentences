@@ -1,12 +1,12 @@
 SetPreset:
   action:
-    service: linkplay.preset
+    action: linkplay.preset
     data:
       preset: "{{ plpreset }}"
       entity_id: media_player.soundbedroom
   speech:
     text: "Включаю"
-    
+
 PM25:
   action:
     []
@@ -86,7 +86,7 @@ volumeset:
 
 wut:
   action:
-    service: rest_command.wiki_how
+    action: rest_command.wiki_how
     response_variable: wiki_response
     enabled: true
     data:
@@ -94,12 +94,21 @@ wut:
   speech:
     text: "{{ wiki_response['content']['extract'] }}"
 
-#BrightnessSet:
-#  action:
-#    service: light.turn_on
-#    data:
-#      brightness_pct: "{{brightness}}"
-#    target:
-#      area_id: "{{ area_id(area) }}"
-#  speech:
-#    text: "Ok"
+ledstate:
+  speech:
+    text: >-
+        {% if states(led) %}
+          {{ state_attr(led, 'friendly_name') }} в состоянии {{ state_translated(led).lower() }}
+        {% else %}
+          I'm not sure about the level of your {{ led }}.
+        {% endif %}
+
+BrightnessSet:
+  action:
+    action: light.turn_on
+    data:
+      brightness_pct: "{{brightness}}"
+    target:
+      entity_id: "{{ targets.entities }}"
+  speech:
+    text: "Ok"
