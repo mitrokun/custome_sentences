@@ -70,7 +70,7 @@ actions:
   - action: shell_command.update_news
     metadata: {}
     data: {}
-    response_variable: news10
+    response_variable: news15
   - action: conversation.process
     metadata: {}
     data:
@@ -81,40 +81,42 @@ actions:
         map(attribute='entity_id')| first %} {{ agent if agent is defined else
         "conversation.openaicompatible"}}
       text: >-
-        {{news10.stdout}}. Изучи эти новости и скомпонуй короткий пересказ,
+        {{news15.stdout}}. Изучи эти новости и скомпонуй короткий пересказ,
         объединив связанные события.
     response_variable: news
   - set_conversation_response: "{{ news.response.speech.plain.speech }}"
 mode: single
 
 
+#shell_command:
+#  update_news: python3 /config/scripts/update_news.py
 ---
 #!/usr/bin/env python3
 import requests
 from bs4 import BeautifulSoup
 
-url = "https://www.mk.ru/news/"
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-}
+def get_latest_news(url):
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        response.encoding = response.apparent_encoding
+        soup = BeautifulSoup(response.text, 'html.parser')
+        news_items = soup.select('dd > a')[:15]
+        news = [{'text': item.get_text(strip=True), 'link': item['href']} for item in news_items]
 
-response = requests.get(url, headers=headers)
-response.encoding = 'utf-8'
-soup = BeautifulSoup(response.text, 'html.parser')
+        return news
 
-news_list = []
+    except requests.RequestException as e:
+        print(f"Ошибка при выполнении запроса: {e}")
+        return []
 
-desired_indices = list(range(1, 6)) + list(range(8, 13))
+url = 'https://www.ng.ru/news/'
+latest_news = get_latest_news(url)
 
-for n in desired_indices:
-    selector = f"section:nth-child(4) > ul > li:nth-child({n}) > a > h3"
-    news_item = soup.select_one(selector)
-    if news_item:
-        news_title = news_item.get_text(strip=True)
-        news_list.append(news_title)
-    else:
-        news_list.append(f"Новость {n} не найдена")
-
-news_string = "\n".join([f"{i}. {title}" for i, title in enumerate(news_list, 1)])
+news_strings = [news_item['text'] for news_item in latest_news]
+news_string = ".\n".join(news_strings)
 print(news_string)
 ---
