@@ -59,7 +59,7 @@ actions:
 mode: single
 
 #Processing the promt with the conversation that is assigned to the assistant. The name of the assist pipeline and the conversation must be the same.
-#The initial data is extracted using a python script that parses the site and writes the values to the news10 variable.
+#The initial data is extracted using a python script that parses the site and writes the values to the news15 variable.
 alias: voice-news2
 description: ""
 triggers:
