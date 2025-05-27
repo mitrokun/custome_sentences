@@ -102,3 +102,5 @@ sequence:
     target:
       entity_id: "{{ id.stdout }}"
 alias: light_with_delay
+mode: parallel
+max: 5
