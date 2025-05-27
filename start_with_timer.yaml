@@ -87,16 +87,15 @@ sequence:
     target:
       entity_id: "{{ id.stdout }}"
   - delay: >
-      {% set time_str = time | default('00:00:30') %} {% if 'секунд' in time_str
-      or 'секунда' in time_str or 'секунды' in time_str %}
-        {% set seconds = time_str.split(' ')[0] | int %}
-        {{ '00:00:%02d' | format(seconds) }}
-      {% elif 'минут' in time_str or 'минута' in time_str or 'минуты' in
-      time_str %}
-        {% set minutes = time_str.split(' ')[0] | int %}
-        {{ '00:%02d:00' | format(minutes) }}
+      {% set time_str = time | default('10 секунд') %}
+      {% set number = (time_str | regex_findall('^\\d+') | first | default(1) | int) %}
+      {% set unit = (time_str | regex_replace('^\\d+\\s*', '') | lower) %}
+      {% if unit.startswith('сек') %}
+        {{ '00:00:%02d' | format(number) }}
+      {% elif unit.startswith('мин') %}
+        {{ '00:%02d:00' | format(number) }}
       {% else %}
-        {{ time_str }}
+        {{ '00:00:10' }}
       {% endif %}
   - action: light.turn_off
     target:
