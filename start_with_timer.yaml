@@ -1,0 +1,104 @@
+# In configuration.yaml
+# shell_command:
+#   find_entity: python3 /config/scripts/parser.py "{{ query }}"
+
+
+#!/usr/bin/env python3
+import json
+import sys
+import os
+
+ENTITY_REGISTRY_PATH = "/config/.storage/core.entity_registry"
+
+def normalize_string(s):
+    """Converts a string to lowercase and removes leading/trailing whitespace."""
+    if s is None:
+        return ""
+    return str(s).lower().strip()
+
+def find_entity_id(entities_list, search_query):
+    """Searches for an entity by name or alias."""
+    normalized_query = normalize_string(search_query)
+    if not normalized_query:
+        return None
+    for entity in entities_list:
+        entity_name = normalize_string(entity.get("name"))
+        aliases = [normalize_string(alias) for alias in entity.get("aliases", [])]
+        if entity_name == normalized_query or normalized_query in aliases:
+            return entity.get("entity_id")
+    return None
+
+def load_entities(file_path):
+    """Loads entities from the core.entity_registry file."""
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get("data", {}).get("entities", [])
+    except json.JSONDecodeError:
+        return None
+    except Exception:
+        return None
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Error: No query provided")
+        sys.exit(1)
+    
+    query = sys.argv[1]
+    entities_list = load_entities(ENTITY_REGISTRY_PATH)
+    if entities_list is None:
+        print("Error: Failed to load entities")
+        sys.exit(1)
+    
+    entity_id = find_entity_id(entities_list, query)
+    if entity_id:
+        print(entity_id)
+    else:
+        print("None")
+        
+# chmod +x /config/scripts/parser.py
+
+
+# automation
+alias: "Voice_start_with_timer"
+description: ""
+triggers:
+  - trigger: conversation
+    command: Включи {name} на {time}
+conditions: []
+actions:
+  - action: script.turn_on
+    data:
+      entity_id: script.turn_off_light_with_delay
+      variables:
+        name: "{{ trigger.slots.name }}"
+        time: "{{ trigger.slots.time }}"
+mode: single
+
+# script
+sequence:
+  - data:
+      query: "{{ name }}"
+    response_variable: id
+    action: shell_command.find_entity
+  - action: light.turn_on
+    target:
+      entity_id: "{{ id.stdout }}"
+  - delay: >
+      {% set time_str = time | default('00:00:30') %} {% if 'секунд' in time_str
+      or 'секунда' in time_str or 'секунды' in time_str %}
+        {% set seconds = time_str.split(' ')[0] | int %}
+        {{ '00:00:%02d' | format(seconds) }}
+      {% elif 'минут' in time_str or 'минута' in time_str or 'минуты' in
+      time_str %}
+        {% set minutes = time_str.split(' ')[0] | int %}
+        {{ '00:%02d:00' | format(minutes) }}
+      {% else %}
+        {{ time_str }}
+      {% endif %}
+  - action: light.turn_off
+    target:
+      entity_id: "{{ id.stdout }}"
+alias: light_with_delay
