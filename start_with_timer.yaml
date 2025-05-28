@@ -22,6 +22,11 @@ def find_entity_id(entities_list, search_query):
     if not normalized_query:
         return None
     for entity in entities_list:
+        """Check that should_expose == True"""
+        options = entity.get("options", {})
+        conversation = options.get("conversation", {})
+        if conversation.get("should_expose", False) != True:
+            continue
         entity_name = normalize_string(entity.get("name"))
         aliases = [normalize_string(alias) for alias in entity.get("aliases", [])]
         if entity_name == normalized_query or normalized_query in aliases:
