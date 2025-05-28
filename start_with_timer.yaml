@@ -63,43 +63,76 @@ if __name__ == "__main__":
 
 # automation
 alias: "Voice_start_with_timer"
-description: ""
 triggers:
   - trigger: conversation
     command: Включи {name} на {time}
 conditions: []
 actions:
-  - action: script.turn_on
-    data:
-      entity_id: script.turn_off_light_with_delay
-      variables:
-        name: "{{ trigger.slots.name }}"
-        time: "{{ trigger.slots.time }}"
+  - data:
+      query: "{{ trigger.slots.name }}"
+    response_variable: response
+    action: shell_command.find_entity
+  - if:
+      - condition: template
+        value_template: "{{ response.stdout == 'None' }}"
+    then:
+      - set_conversation_response: Объект отсутствует
+    else:
+      - action: script.turn_on
+        data:
+          variables:
+            id: "{{ response.stdout }}"
+            time: "{{ trigger.slots.time }}"
+        target:
+          entity_id: script.turn_off_light_with_delay
+      - set_conversation_response: Ok
 mode: single
 
 # script
-sequence:
-  - data:
-      query: "{{ name }}"
-    response_variable: id
-    action: shell_command.find_entity
-  - action: light.turn_on
-    target:
-      entity_id: "{{ id.stdout }}"
-  - delay: >
-      {% set time_str = time | default('10 секунд') %}
-      {% set number = (time_str | regex_findall('^\\d+') | first | default(1) | int) %}
-      {% set unit = (time_str | regex_replace('^\\d+\\s*', '') | lower) %}
-      {% if unit.startswith('сек') %}
-        {{ '00:00:%02d' | format(number) }}
-      {% elif unit.startswith('мин') %}
-        {{ '00:%02d:00' | format(number) }}
-      {% else %}
-        {{ '00:00:10' }}
-      {% endif %}
-  - action: light.turn_off
-    target:
-      entity_id: "{{ id.stdout }}"
 alias: light_with_delay
 mode: parallel
 max: 5
+sequence:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ id.split('.')[0] == 'light' }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ id }}"
+          - delay: >
+              {% set time_str = time | default('10 секунд') %} {% set number =
+              (time_str | regex_findall('^\\d+') | first | default(1) | int) %}
+              {% set unit = (time_str | regex_replace('^\\d+\\s*', '') | lower)
+              %} {% if unit.startswith('сек') %}
+                {{ '00:00:%02d' | format(number) }}
+              {% elif unit.startswith('мин') %}
+                {{ '00:%02d:00' | format(number) }}
+              {% else %}
+                {{ '00:00:10' }}
+              {% endif %}
+          - action: light.turn_off
+            target:
+              entity_id: "{{ id }}"
+      - conditions:
+          - condition: template
+            value_template: "{{ id.split('.')[0] == 'switch' }}"
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id: "{{ id }}"
+          - delay: >
+              {% set time_str = time | default('10 секунд') %} {% set number =
+              (time_str | regex_findall('^\\d+') | first | default(1) | int) %}
+              {% set unit = (time_str | regex_replace('^\\d+\\s*', '') | lower)
+              %} {% if unit.startswith('сек') %}
+                {{ '00:00:%02d' | format(number) }}
+              {% elif unit.startswith('мин') %}
+                {{ '00:%02d:00' | format(number) }}
+              {% else %}
+                {{ '00:00:10' }}
+              {% endif %}
+          - action: switch.turn_off
+            target:
+              entity_id: "{{ id }}"
