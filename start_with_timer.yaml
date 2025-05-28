@@ -84,7 +84,7 @@ actions:
             id: "{{ response.stdout }}"
             time: "{{ trigger.slots.time }}"
         target:
-          entity_id: script.turn_off_light_with_delay
+          entity_id: script.light_with_delay
       - set_conversation_response: Ok
 mode: single
 
