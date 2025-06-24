@@ -70,7 +70,7 @@ if __name__ == "__main__":
 alias: "Voice_start_with_timer"
 triggers:
   - trigger: conversation
-    command: Включи {name} на {time}
+    command: Запусти {name} на {time}
 conditions: []
 actions:
   - data:
