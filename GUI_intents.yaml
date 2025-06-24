@@ -5,22 +5,85 @@ triggers:
   - trigger: conversation
     command:
       - громкость спутника на {vlm}
+    id: set
+  - trigger: conversation
+    command:
+      - повысь громкость спутника
+    id: up
+  - trigger: conversation
+    command:
+      - "понизь громкость спутника "
+    id: down
 conditions: []
 actions:
-  - action: media_player.volume_set
-    metadata: {}
-    data:
-      volume_level: "{{ trigger.slots.vlm | int / 100 }}"
-    target:
-      entity_id: "{{ 'media_player.'~device_attr(trigger.device_id, 'name')| lower }}"
-    enabled: true
-  - delay:
-      hours: 0
-      minutes: 0
-      seconds: 2
-      milliseconds: 0
-  - set_conversation_response: Поставил
-    enabled: true
+  - choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - set
+        sequence:
+          - action: media_player.volume_set
+            metadata: {}
+            data:
+              volume_level: "{{ trigger.slots.vlm | int / 100 }}"
+            target:
+              entity_id: >-
+                {{ 'media_player.'~device_attr(trigger.device_id, 'name')| lower
+                }}
+            enabled: true
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 1
+              milliseconds: 0
+          - set_conversation_response: Поставил
+            enabled: true
+      - conditions:
+          - condition: trigger
+            id:
+              - up
+        sequence:
+          - action: media_player.volume_set
+            metadata: {}
+            data:
+              volume_level: >-
+                {{state_attr('media_player.'~device_attr(trigger.device_id,
+                'name')| lower,'volume_level') + 0.1}}
+            target:
+              entity_id: >-
+                {{ 'media_player.'~device_attr(trigger.device_id, 'name')| lower
+                }}
+            enabled: true
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 1
+              milliseconds: 0
+          - set_conversation_response: Повысил
+            enabled: true
+      - conditions:
+          - condition: trigger
+            id:
+              - down
+        sequence:
+          - action: media_player.volume_set
+            metadata: {}
+            data:
+              volume_level: >-
+                {{ state_attr('media_player.'~device_attr(trigger.device_id,
+                'name')| lower,'volume_level') - 0.1 }}
+            target:
+              entity_id: >-
+                {{ 'media_player.'~device_attr(trigger.device_id, 'name')| lower
+                }}
+            enabled: true
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: 1
+              milliseconds: 0
+          - set_conversation_response: Понизил
+            enabled: true
 mode: single
 
 #Turning on the main light in the room(using a label)
@@ -120,3 +183,5 @@ news_strings = [news_item['text'] for news_item in latest_news]
 news_string = ".\n".join(news_strings)
 print(news_string)
 ---
+
+
