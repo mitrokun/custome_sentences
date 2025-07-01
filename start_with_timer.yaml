@@ -2,6 +2,7 @@
 # shell_command:
 #   find_entity: python3 /config/scripts/parser.py "{{ query }}"
 
+# Create parser.py in the folder specified above and place this code in the file
 
 #!/usr/bin/env python3
 import json
@@ -62,10 +63,13 @@ if __name__ == "__main__":
         print(entity_id)
     else:
         print("None")
-        
+
+
+# In the ssh terminal, execute the command
 # chmod +x /config/scripts/parser.py
 
 
+# Create a new automation via the interface, switch to text mode, and paste the code.
 # automation
 alias: "Voice_start_with_timer"
 triggers:
@@ -92,6 +96,10 @@ actions:
           entity_id: script.light_with_delay
       - set_conversation_response: Ok
 mode: single
+
+
+# Create a new script via the interface, switch to text mode, and paste the code. After saving, check the names so that the automation calls this script.
+# If you are using a different language, replace the initial masks for minutes and seconds. "мин" -> "min" and so on.
 
 # script
 alias: light_with_delay
