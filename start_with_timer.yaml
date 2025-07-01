@@ -1,6 +1,6 @@
 # In configuration.yaml
-# shell_command:
-#   find_entity: python3 /config/scripts/parser.py "{{ query }}"
+shell_command:
+  find_entity: python3 /config/scripts/parser.py "{{ query }}"
 
 # Create parser.py in the folder specified above and place this code in the file
 
