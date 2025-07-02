@@ -43,17 +43,8 @@ tempstatfull:
     []
   speech:
     text: >-
-        {% set area_alt = area %}
-        {% set areaalias = {
-        "зале": "зал",
-        "кухне": "кухня",
-        "коридоре": "коридор",
-        "кабинете": "кабинет",
-        "спальне": "спальня",
-        "ванной": "ванная"
-          } %}
         "Температура в {{ area }} {{  states.sensor|selectattr('attributes.device_class', 'eq', 'temperature')|
-        selectattr('entity_id', 'in', area_entities( areaalias[area_alt] if area_alt in areaalias else area))|
+        selectattr('entity_id', 'in', area_entities(area))|
         map(attribute='state')|min|int|format(morph='градус', as_text=false)  }} " 
 tempstatroom:
   action:
