@@ -25,7 +25,35 @@ actions:
           - action: media_player.volume_set
             metadata: {}
             data:
-              volume_level: "{{ trigger.slots.vlm | int / 100 }}"
+              volume_level: >-
+                {% set number_map = {
+                  "пять": 5,
+                  "десять": 10,
+                  "пятнадцать": 15,
+                  "двадцать": 20,
+                  "двадцать пять": 25,
+                  "тридцать": 30,
+                  "тридцать пять": 35,
+                  "сорок": 40,
+                  "сорок пять": 45,
+                  "пятьдесят": 50,
+                  "пятьдесят пять": 55,
+                  "шестьдесят": 60,
+                  "шестьдесят пять": 65,
+                  "семьдесят": 70,
+                  "семьдесят пять": 75,
+                  "восемьдесят": 80,
+                  "восемьдесят пять": 85,
+                  "девяносто": 90,
+                  "девяносто пять": 95,
+                  "сто": 100
+                } %}
+                {% set vlm_input = trigger.slots.vlm | string %}
+                {% if vlm_input in number_map %}
+                  {{ number_map[vlm_input] / 100 }}
+                {% else %}
+                  {{ vlm_input | int(0) / 100 }}
+                {% endif %}
             target:
               entity_id: >-
                 {{ 'media_player.'~device_attr(trigger.device_id, 'name')| lower
@@ -36,7 +64,7 @@ actions:
               minutes: 0
               seconds: 1
               milliseconds: 0
-          - set_conversation_response: Поставил
+          - set_conversation_response: Установил
             enabled: true
       - conditions:
           - condition: trigger
