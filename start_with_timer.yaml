@@ -65,8 +65,6 @@ if __name__ == "__main__":
         print("None")
 
 
-# In the ssh terminal, execute the command
-# chmod +x /config/scripts/parser.py
 
 
 # Create a new automation via the interface, switch to text mode, and paste the code.
