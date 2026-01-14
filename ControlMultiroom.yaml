@@ -1,0 +1,47 @@
+alias: Control Multiroom Audio
+description: >-
+  Primary controller for Audio Zones (Topology).
+
+  CRITICAL TRIGGER RULES: 1. Use this tool if the request mentions a LOCATION
+  ("Music IN Kitchen", "Sound HERE", "Add Office"). 2. Use this tool if the user
+  asks to "Join", "Connect", or "Add" a room. 3. If the user says "Turn on
+  music" AND you know the Current Area is a satellite room (Kitchen, Office,
+  etc.) -> Use this tool to JOIN that room.
+fields:
+  target_zone:
+    required: true
+    description: >-
+      Code of the zone. Match the user's requested room OR the Current Area to
+      one of these: - 'office' -> Кабинет - 'kitchen' -> Кухня - 'zal' -> Зал,
+      Гостиная - 'bath' -> Ванная, Душ - 'hall' -> Коридор, Прихожая - 'reset'
+      -> Выключить мультирум
+sequence:
+  - variables:
+      zone_map:
+        office: script.mr_joinkchn
+        kitchen: script.mr_joinkchn_2
+        zal: script.mr_unjoinbtn
+        bath: script.mr_joinbath
+        hall: script.mr_joinhall
+        reset: script.mr_unjoin
+      clean_zone: "{{ target_zone | lower | trim }}"
+      script_to_run: "{{ zone_map.get(clean_zone) }}"
+  - if:
+      - condition: template
+        value_template: "{{ script_to_run is not none }}"
+    then:
+      - delay:
+          seconds: 5
+      - action: script.turn_on
+        target:
+          entity_id: "{{ script_to_run }}"
+        data: {}
+      - variables:
+          result:
+            status: success
+            executed: "{{ clean_zone }}"
+      - stop: Done
+        response_variable: result
+    else:
+      - stop: "Error: Unknown zone. Use: office, kitchen, zal, bath, hall, reset."
+        error: true
