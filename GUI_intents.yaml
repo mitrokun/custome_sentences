@@ -120,7 +120,7 @@ description: ""
 triggers:
   - trigger: conversation
     command:
-      - Включи свет
+      - включи[ть] свет
 conditions: []
 actions:
   - if:
@@ -140,6 +140,28 @@ actions:
             label_entities('mainlight'))|selectattr('entity_id', 'in',
             area_entities(area_id(trigger.device_id)))
             |map(attribute='entity_id') |list }}
+    else:
+      - action: light.turn_on
+        metadata: {}
+        data: {}
+        target:
+          area_id: "{{ area_id(trigger.device_id) }}"
+    enabled: false
+  - if:
+      - condition: template
+        value_template: >-
+          {{ (label_entities('mainlight') | select('in',
+          area_entities(area_id(trigger.device_id))) | select('match',
+          'light.')) | list | count > 0}}
+    then:
+      - action: light.turn_on
+        metadata: {}
+        data: {}
+        target:
+          entity_id: >-
+            {{ (label_entities('mainlight') | select('in',
+            area_entities(area_id(trigger.device_id))) | select('match',
+            'light.')) | list }}
     else:
       - action: light.turn_on
         metadata: {}
