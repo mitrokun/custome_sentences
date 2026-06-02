@@ -1,0 +1,694 @@
+language: ru
+responses:
+  intents:
+
+    HassTimerStatus:
+      default: |
+        {# Data preparation #}
+        {% set active_timers = slots.timers | selectattr('is_active') | list %}
+        {% set paused_timers = slots.timers | rejectattr('is_active') | list %}
+        {% set num_active = active_timers | length %}
+        {% set num_paused = paused_timers | length %}
+        {% set total_timers = slots.timers | length %}
+        {% set next_timer = None %}
+
+        {# BLOCK 1: General status (counts) #}
+        {% if total_timers == 0 %}
+          Таймеры отсутствуют.
+        {% else %}
+          {# Determine counts and nouns for active timers #}
+          {% if num_active % 10 == 1 and num_active % 100 != 11 %}
+            {% set active_noun = "таймер" %}
+          {% elif 2 <= num_active % 10 <= 4 and not (12 <= num_active % 100 <= 14) %}
+            {% set active_noun = "таймера" %}
+          {% else %}
+            {% set active_noun = "таймеров" %}
+          {% endif %}
+
+          {# Determine counts and nouns for paused timers #}
+          {% if num_paused % 10 == 1 and num_paused % 100 != 11 %}
+            {% set paused_noun = "таймер" %}
+          {% elif 2 <= num_paused % 10 <= 4 and not (12 <= num_paused % 100 <= 14) %}
+            {% set paused_noun = "таймера" %}
+          {% else %}
+            {% set paused_noun = "таймеров" %}
+          {% endif %}
+
+          {# Status messages #}
+          {% if num_active > 0 %}
+            {% set next_timer = (active_timers | sort(attribute='total_seconds_left'))[0] %}
+            {% if total_timers > 1 %}
+              {% if num_active == 1 %}
+                Таймер активен. 
+              {% else %}
+                Активны {{ num_active }} {{ active_noun }}. 
+              {% endif %}
+            {% endif %}
+          {% endif %}
+
+          {% if num_paused > 0 %}
+            {% if not next_timer %}
+              {% set next_timer = paused_timers[0] %}
+            {% endif %}
+            {% if num_paused == 1 %}
+              Один таймер приостановлен. 
+            {% else %}
+              {{ num_paused }} {{ paused_noun }} приостановлены. 
+            {% endif %}
+          {% endif %}
+        {% endif %}
+
+        {# BLOCK 2 & 3: Time Calculation and Phrasing #}
+        {% if next_timer %}
+          {% set hours = next_timer.rounded_hours_left %}
+          {% set minutes = next_timer.rounded_minutes_left %}
+          {% set seconds = next_timer.rounded_seconds_left %}
+          
+          {# Hide seconds if more than 30 minutes remain #}
+          {% if hours > 0 or minutes > 30 %}
+            {% set seconds = 0 %}
+          {% endif %}
+
+          {# 1. SELECT VERB (Agrees with the first unit) #}
+          {% set verb = "осталось" %}
+          {% if hours > 0 %}
+            {% if hours % 10 == 1 and hours % 100 != 11 %}
+              {% set verb = "остался" %}
+            {% endif %}
+          {% elif minutes > 0 %}
+            {% if minutes % 10 == 1 and minutes % 100 != 11 %}
+              {% set verb = "осталась" %}
+            {% endif %}
+          {% else %}
+            {% if seconds % 10 == 1 and seconds % 100 != 11 %}
+              {% set verb = "осталась" %}
+            {% endif %}
+          {% endif %}
+
+          {# 2. BUILD REMAINING TIME STRING #}
+          {% set time_parts = [] %}
+          
+          {# Hours (Masculine) #}
+          {% if hours > 0 %}
+            {% if hours % 10 == 1 and hours % 100 != 11 %}
+              {% set unit = "час" %}
+            {% elif 2 <= hours % 10 <= 4 and not (12 <= hours % 100 <= 14) %}
+              {% set unit = "часа" %}
+            {% else %}
+              {% set unit = "часов" %}
+            {% endif %}
+            {% set time_parts = time_parts + [hours ~ ' ' ~ unit] %}
+          {% endif %}
+
+          {# Minutes (Feminine + TTS Normalization) #}
+          {% if minutes > 0 %}
+            {% set m_fmt = minutes %}
+            {% if minutes % 10 == 1 and minutes % 100 != 11 %}
+              {% set m_fmt = (minutes - 1) ~ " одна" if minutes > 10 else "одна" %}
+            {% elif minutes % 10 == 2 and minutes % 100 != 12 %}
+              {% set m_fmt = (minutes - 2) ~ " две" if minutes > 10 else "две" %}
+            {% endif %}
+            
+            {% if minutes % 10 == 1 and minutes % 100 != 11 %}
+              {% set unit = "минута" %}
+            {% elif 2 <= minutes % 10 <= 4 and not (12 <= minutes % 100 <= 14) %}
+              {% set unit = "минуты" %}
+            {% else %}
+              {% set unit = "минут" %}
+            {% endif %}
+            {% set time_parts = time_parts + [m_fmt ~ ' ' ~ unit] %}
+          {% endif %}
+
+          {# Seconds (Feminine + TTS Normalization) #}
+          {% if seconds > 0 or (hours == 0 and minutes == 0) %}
+            {% set s_fmt = seconds %}
+            {% if seconds % 10 == 1 and seconds % 100 != 11 %}
+              {% set s_fmt = (seconds - 1) ~ " одна" if seconds > 10 else "одна" %}
+            {% elif seconds % 10 == 2 and seconds % 100 != 12 %}
+              {% set s_fmt = (seconds - 2) ~ " две" if seconds > 10 else "две" %}
+            {% endif %}
+            
+            {% if seconds % 10 == 1 and seconds % 100 != 11 %}
+              {% set unit = "секунда" %}
+            {% elif 2 <= seconds % 10 <= 4 and not (12 <= seconds % 100 <= 14) %}
+              {% set unit = "секунды" %}
+            {% else %}
+              {% set unit = "секунд" %}
+            {% endif %}
+            {% set time_parts = time_parts + [s_fmt ~ ' ' ~ unit] %}
+          {% endif %}
+
+          {# 3. BUILD DISAMBIGUATION LABEL (Original time) #}
+          {% set label_parts = [] %}
+          {% if total_timers > 1 %}
+            {% set start_h = next_timer.start_hours %}
+            {% set start_m = next_timer.start_minutes %}
+            {% set start_s = next_timer.start_seconds %}
+            
+            {% if start_h > 0 %}
+              {% if start_h % 10 == 1 and start_h % 100 != 11 %}
+                {% set unit = "час" %}
+              {% elif 2 <= start_h % 10 <= 4 and not (12 <= start_h % 100 <= 14) %}
+                {% set unit = "часа" %}
+              {% else %}
+                {% set unit = "часов" %}
+              {% endif %}
+              {% set label_parts = label_parts + [start_h ~ ' ' ~ unit] %}
+            {% endif %}
+
+            {% if start_m > 0 %}
+              {% set sm_fmt = start_m %}
+              {% if start_m % 10 == 1 and start_m % 100 != 11 %}
+                {% set sm_fmt = (start_m - 1) ~ " одна" if start_m > 10 else "одна" %}
+              {% elif start_m % 10 == 2 and start_m % 100 != 12 %}
+                {% set sm_fmt = (start_m - 2) ~ " две" if start_m > 10 else "две" %}
+              {% endif %}
+              
+              {% if start_m % 10 == 1 and start_m % 100 != 11 %}
+                {% set unit = "минута" %}
+              {% elif 2 <= start_m % 10 <= 4 and not (12 <= start_m % 100 <= 14) %}
+                {% set unit = "минуты" %}
+              {% else %}
+                {% set unit = "минут" %}
+              {% endif %}
+              {% set label_parts = label_parts + [sm_fmt ~ ' ' ~ unit] %}
+            {% endif %}
+
+            {% if start_s > 0 %}
+              {% set ss_fmt = start_s %}
+              {% if start_s % 10 == 1 and start_s % 100 != 11 %}
+                {% set ss_fmt = (start_s - 1) ~ " одна" if start_s > 10 else "одна" %}
+              {% elif start_s % 10 == 2 and start_s % 100 != 12 %}
+                {% set ss_fmt = (start_s - 2) ~ " две" if start_s > 10 else "две" %}
+              {% endif %}
+              
+              {% if start_s % 10 == 1 and start_s % 100 != 11 %}
+                {% set unit = "секунда" %}
+              {% elif 2 <= start_s % 10 <= 4 and not (12 <= start_s % 100 <= 14) %}
+                {% set unit = "секунды" %}
+              {% else %}
+                {% set unit = "секунд" %}
+              {% endif %}
+              {% set label_parts = label_parts + [ss_fmt ~ ' ' ~ unit] %}
+            {% endif %}
+          {% endif %}
+
+          {# 4. FINAL PHRASE CONSTRUCTION #}
+          {% set time_phrase = time_parts | join(' и ') %}
+          {{ time_phrase | capitalize }} {{ verb }}
+          {%- if total_timers > 1 %} у таймера на 
+            {%- if label_parts | length == 3 %}
+              {{ label_parts[0] }} {{ label_parts[1] }} и {{ label_parts[2] }}
+            {%- else %}
+              {{ label_parts | join(' и ') }}
+            {%- endif %}
+            {%- if next_timer.name %}
+              {{ " " }}{{ next_timer.name }}
+            {%- elif next_timer.area %}
+              {{ " " }}{{ next_timer.area }}
+            {%- endif %}
+          {%- endif -%}
+          .
+        {% endif %}
+
+    HassLightSet:
+      brightness: "Яркость установлена на {{ slots.brightness }}"
+
+      color: |
+        {% set c = slots.color.lower() %}
+        {%- if c[-2:] in "им,ей" -%} 
+          {# синим, синей -> синий #}
+          {%- set res = c[:-2] ~ "ий" -%}
+        {%- elif c[-2:] in "ым,ой" -%}
+          {# красным, красной -> красный; голубым, голубой -> голубой #}
+          {%- if c[:-2] in "голуб,золот,стальн" -%}
+            {%- set res = c[:-2] ~ "ой" -%}
+          {%- else -%}
+            {%- set res = c[:-2] ~ "ый" -%}
+          {%- endif -%}
+        {%- else -%}
+          {%- set res = c -%}
+        {%- endif -%}
+        
+        {{- res ~ " цвет задан" -}}
+      
+    HassTurnOn:
+      default: |
+        {% set female_ending = "а" %}
+        {% set neuter_ending = "о" %}
+        {% set male_ending = "" %}
+        {% set plural_ending = "ы" %}
+        
+        {# Разделяем фразу на слова #}
+        {% set words = slots.name.split() %}
+        {% set prepositions = ["в", "на", "под"] %}  {# Список предлогов #}
+        
+        {# Проверяем, есть ли предлог во фразе #}
+        {% set has_preposition = words|select("in", prepositions)|list|length > 0 %}
+        
+        {# Если есть предлог, берём только первое слово как существительное, остальное оставляем #}
+        {% if has_preposition %}
+          {% set noun = words[0].lower() %}  {# Первое слово - основное существительное #}
+          {% set location = words[1:]|join(" ") %}  {# Остальная часть фразы с предлогом #}
+        {% else %}
+          {# Если предлога нет, как раньше: последнее - существительное, первое - прилагательное #}
+          {% set noun = words[-1].lower() %}
+          {% set adj = words[0].lower() if words|length > 1 else "" %}
+        {% endif %}
+        
+        {# Определяем род и преобразуем существительное #}
+        {% if noun[-1] == "ь" %}
+          {% if ((noun.split() + ["выключатель","пользователь","день","дождь"])
+                | count != dict.fromkeys(noun.split() + ["выключатель","пользователь","день","дождь"]) | count) 
+                or (noun[-2] in "рь" and noun != "дверь") %}
+            {% set ending = male_ending %}
+            {% set noun_new = noun %}
+          {% else %}
+            {% set ending = female_ending %}
+            {% set noun_new = noun %}
+          {% endif %}
+        {% elif noun[-1] in "а, у, ю, я" %}
+          {% set ending = female_ending %}
+          {% if noun[-1] == "у" %}
+            {% set noun_new = noun[:-1] ~ "а" %}
+          {% elif noun[-1] == "ю" %}
+            {% set noun_new = noun[:-1] ~ "я" %}
+          {% else %}
+            {% set noun_new = noun %}
+          {% endif %}
+        {% elif noun[-1] in "о, е" %}
+          {% set ending = neuter_ending %}
+          {% set noun_new = noun %}
+        {% elif noun[-1] in "ы, и" %}
+          {% set ending = plural_ending %}
+          {% set noun_new = noun %}
+        {% else %}
+          {% set ending = male_ending %}
+          {% set noun_new = noun %}
+        {% endif %}
+        
+        {# Преобразуем прилагательное, если нет предлога #}
+        {% if not has_preposition and adj %}
+          {% if ending == female_ending %}
+            {% set adj_new = adj[:-2] ~ "ая" if adj[-2:] in "ую" else (adj[:-2] ~ "яя" if adj[-2:] in "юю" else adj) %}
+          {% else %}
+            {% set adj_new = adj %}
+          {% endif %}
+        {% else %}
+          {% set adj_new = "" %}
+        {% endif %}
+        
+        {# Собираем фразу #}
+        {% if has_preposition %}
+          {% set phrase = noun_new ~ " " ~ location %}
+        {% else %}
+          {% set phrase = adj_new ~ " " ~ noun_new if adj_new else noun_new %}
+        {% endif %}
+        
+        {{ phrase|capitalize ~ " включен" ~ ending }}
+      lights_area: |
+        {% if slots.area[-2:].lower() in "ая,ой" -%} {# гостиная, гардеробная.. #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ой" -%}
+        {%- elif slots.area[-2:].lower() in "ии,ия,ие" -%} {# аудитория, помещение.. #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ии" -%}
+        {%- elif slots.area[-2:].lower() in "ок" -%} {# участок.. или названия с суффиксом #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ке" -%}
+        {%- elif slots.area[-2:].lower() in "ях" -%} {# покоях, сенях #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ях" -%}
+        {%- elif slots.area[-2:].lower() in "ай" -%} {# сарай #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ае" -%}
+        {%- elif slots.area[-2:].lower() in "ей" -%} {# музей #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ее" -%}
+        {%- elif slots.area[-1].lower() in "а,ь,я,о,е" -%} {# кухня, спальня.. #}
+          {%- set area_locativus = slots.area[:-1] ~ "е" -%}
+        {%- elif slots.area[-1].lower() in "и" -%} {# покои, сени #} 
+          {%- set area_locativus = slots.area[:-1] ~ "ях" -%}
+        {%- elif slots.area[-1].lower() in "у,ю" -%} {# раю, посту.. #} 
+          {%- set area_locativus = slots.area  -%}
+        {%- else -%} {# зал, офис, кабинет... #}
+          {%- set area_locativus = slots.area ~ "е"-%} 
+        {%- endif %}
+        {{- "Свет в "~area_locativus.lower()~" включен" -}} 
+    HassTurnOff:
+      default: |
+        {% set female_ending = "а" %}
+        {% set neuter_ending = "о" %}
+        {% set male_ending = "" %}
+        {% set plural_ending = "ы" %}
+        
+        {# Разделяем фразу на слова #}
+        {% set words = slots.name.split() %}
+        {% set prepositions = ["в", "на", "под"] %}  {# Список предлогов #}
+        
+        {# Проверяем, есть ли предлог во фразе #}
+        {% set has_preposition = words|select("in", prepositions)|list|length > 0 %}
+        
+        {# Если есть предлог, берём только первое слово как существительное, остальное оставляем #}
+        {% if has_preposition %}
+          {% set noun = words[0].lower() %}  {# Первое слово - основное существительное #}
+          {% set location = words[1:]|join(" ") %}  {# Остальная часть фразы с предлогом #}
+        {% else %}
+          {# Если предлога нет, как раньше: последнее - существительное, первое - прилагательное #}
+          {% set noun = words[-1].lower() %}
+          {% set adj = words[0].lower() if words|length > 1 else "" %}
+        {% endif %}
+        
+        {# Определяем род и преобразуем существительное #}
+        {% if noun[-1] == "ь" %}
+          {% if ((noun.split() + ["выключатель","пользователь","день","дождь"])
+                | count != dict.fromkeys(noun.split() + ["выключатель","пользователь","день","дождь"]) | count) 
+                or (noun[-2] in "рь" and noun != "дверь") %}
+            {% set ending = male_ending %}
+            {% set noun_new = noun %}
+          {% else %}
+            {% set ending = female_ending %}
+            {% set noun_new = noun %}
+          {% endif %}
+        {% elif noun[-1] in "а, у, ю, я" %}
+          {% set ending = female_ending %}
+          {% if noun[-1] == "у" %}
+            {% set noun_new = noun[:-1] ~ "а" %}
+          {% elif noun[-1] == "ю" %}
+            {% set noun_new = noun[:-1] ~ "я" %}
+          {% else %}
+            {% set noun_new = noun %}
+          {% endif %}
+        {% elif noun[-1] in "о, е" %}
+          {% set ending = neuter_ending %}
+          {% set noun_new = noun %}
+        {% elif noun[-1] in "ы, и" %}
+          {% set ending = plural_ending %}
+          {% set noun_new = noun %}
+        {% else %}
+          {% set ending = male_ending %}
+          {% set noun_new = noun %}
+        {% endif %}
+        
+        {# Преобразуем прилагательное, если нет предлога #}
+        {% if not has_preposition and adj %}
+          {% if ending == female_ending %}
+            {% set adj_new = adj[:-2] ~ "ая" if adj[-2:] in "ую" else (adj[:-2] ~ "яя" if adj[-2:] in "юю" else adj) %}
+          {% else %}
+            {% set adj_new = adj %}
+          {% endif %}
+        {% else %}
+          {% set adj_new = "" %}
+        {% endif %}
+        
+        {# Собираем фразу #}
+        {% if has_preposition %}
+          {% set phrase = noun_new ~ " " ~ location %}
+        {% else %}
+          {% set phrase = adj_new ~ " " ~ noun_new if adj_new else noun_new %}
+        {% endif %}
+        
+        {{ phrase|capitalize ~ " выключен" ~ ending }}
+      lights_area: |
+        {% if slots.area[-2:].lower() in "ая,ой" -%} {# гостиная, гардеробная.. #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ой" -%}
+        {%- elif slots.area[-2:].lower() in "ии,ия,ие" -%} {# аудитория, помещение.. #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ии" -%}
+        {%- elif slots.area[-2:].lower() in "ок" -%} {# участок.. или названия с суффиксом #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ке" -%}
+        {%- elif slots.area[-2:].lower() in "ях" -%} {# покоях, сенях #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ях" -%}
+        {%- elif slots.area[-2:].lower() in "ай" -%} {# сарай #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ае" -%}
+        {%- elif slots.area[-2:].lower() in "ей" -%} {# музей #} 
+          {%- set area_locativus = slots.area[:-2] ~ "ее" -%}
+        {%- elif slots.area[-1].lower() in "а,ь,я,о,е" -%} {# кухня, спальня.. #}
+          {%- set area_locativus = slots.area[:-1] ~ "е" -%}
+        {%- elif slots.area[-1].lower() in "и" -%} {# покои, сени #} 
+          {%- set area_locativus = slots.area[:-1] ~ "ях" -%}
+        {%- elif slots.area[-1].lower() in "у,ю" -%} {# раю, посту.. #} 
+          {%- set area_locativus = slots.area  -%}
+        {%- else -%} {# зал, офис, кабинет... #}
+          {%- set area_locativus = slots.area ~ "е" -%} 
+        {%- endif %}
+        {{- "Свет в "~area_locativus.lower()~" выключен" -}} 
+    HassBroadcast:
+      default: "Выполнено"
+    HassStartTimer:
+      default: >
+        {# --- Общий словарь для преобразования слов в цифры --- #}
+        {% set num_map = {
+            'один': 1, 'одну': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4,
+            'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9,
+            'десять': 10, 'одиннадцать': 11, 'двенадцать': 12, 'тринадцать': 13,
+            'четырнадцать': 14, 'пятнадцать': 15, 'шестнадцать': 16,
+            'семнадцать': 17, 'восемнадцать': 18, 'девятнадцать': 19,
+            'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50
+        } %}
+        
+        {% set text_parts = [] %}
+        
+        {# --- БЛОК ЧАСОВ --- #}
+        {% if slots.hours is defined and slots.hours not in ['None', None] %}
+          {% set h_value = slots.hours | string %}
+          {% set h_unit = 'часов' %}
+          {% set h_num_val = 0 %}
+          
+          {# Логика преобразования текста в число (добавлено) #}
+          {% if h_value.isdigit() %}
+            {% set h_num_val = h_value | int %}
+          {% else %}
+            {% set last_word = h_value.lower().split(' ') | last %}
+            {% if last_word in num_map %}
+              {% set h_num_val = num_map[last_word] %}
+            {% endif %}
+          {% endif %}
+          
+          {# Склонение слова час/часа/часов #}
+          {% if h_num_val % 10 == 1 and h_num_val != 11 %}
+            {% set h_unit = 'час' %}
+          {% elif h_num_val % 10 in [2, 3, 4] and h_num_val not in [12, 13, 14] %}
+            {% set h_unit = 'часа' %}
+          {% endif %}
+          
+          {% set text_parts = text_parts + [h_value ~ ' ' ~ h_unit] %}
+        {% endif %}
+        
+        {# --- БЛОК МИНУТ --- #}
+        {% if slots.minutes is defined and slots.minutes not in ['None', None] %}
+          {% set m_value = slots.minutes | string %}
+          {% set display_m_value = m_value %}
+          {% set m_unit = '' %}
+          {% set m_num_val = 0 %}
+          
+          {% if m_value.isdigit() %}
+            {% set m_num_val = m_value | int %}
+          {% else %}
+            {% set last_word = m_value.lower().split(' ') | last %}
+            {% if last_word in num_map %}
+              {% set m_num_val = num_map[last_word] %}
+            {% endif %}
+          {% endif %}
+          
+          {% if m_num_val % 10 == 1 and m_num_val != 11 %}
+            {% set m_unit = 'минуту' %}
+          {% elif m_num_val % 10 in [2, 3, 4] and m_num_val not in [12, 13, 14] %}
+            {% set m_unit = 'минуты' %}
+          {% else %}
+            {% set m_unit = 'минут' %}
+          {% endif %}
+          
+          {# Подмена чисел для женского рода в винительном падеже (1->одну, 2->две) #}
+          {% if m_value.isdigit() %}
+            {% if m_value == '1' %}{% set display_m_value = 'одну' %}
+            {% elif m_value == '2' %}{% set display_m_value = 'две' %}
+            {% elif m_value == '21' %}{% set display_m_value = 'двадцать одну' %}
+            {% elif m_value == '31' %}{% set display_m_value = 'тридцать одну' %}
+            {% elif m_value == '41' %}{% set display_m_value = 'сорок одну' %}
+            {% elif m_value == '51' %}{% set display_m_value = 'пятьдесят одну' %}
+            {% elif m_value == '22' %}{% set display_m_value = 'двадцать две' %}
+            {% elif m_value == '32' %}{% set display_m_value = 'тридцать две' %}
+            {% elif m_value == '42' %}{% set display_m_value = 'сорок две' %}
+            {% elif m_value == '52' %}{% set display_m_value = 'пятьдесят две' %}
+            {% endif %}
+          {% endif %}
+          
+          {% if m_unit %}
+            {% set text_parts = text_parts + [display_m_value ~ ' ' ~ m_unit] %}
+          {% endif %}
+        {% endif %}
+        
+        {# --- БЛОК СЕКУНД --- #}
+        {% if slots.seconds is defined and slots.seconds not in ['None', None] %}
+          {% set s_value = slots.seconds | string %}
+          {% set display_s_value = s_value %}
+          {% set s_unit = '' %}
+          {% set s_num_val = 0 %}
+          
+          {% if s_value.isdigit() %}
+            {% set s_num_val = s_value | int %}
+          {% else %}
+            {% set last_word = s_value.lower().split(' ') | last %}
+            {% if last_word in num_map %}
+              {% set s_num_val = num_map[last_word] %}
+            {% endif %}
+          {% endif %}
+          
+          {% if s_num_val % 10 == 1 and s_num_val != 11 %}
+            {% set s_unit = 'секунду' %}
+          {% elif s_num_val % 10 in [2, 3, 4] and s_num_val not in [12, 13, 14] %}
+            {% set s_unit = 'секунды' %}
+          {% else %}
+            {% set s_unit = 'секунд' %}
+          {% endif %}
+          
+          {# Подмена чисел для секунд (аналогично минутам) #}
+          {% if s_value.isdigit() %}
+            {% if s_value == '1' %}{% set display_s_value = 'одну' %}
+            {% elif s_value == '2' %}{% set display_s_value = 'две' %}
+            {% elif s_value == '21' %}{% set display_s_value = 'двадцать одну' %}
+            {% elif s_value == '31' %}{% set display_s_value = 'тридцать одну' %}
+            {% elif s_value == '41' %}{% set display_s_value = 'сорок одну' %}
+            {% elif s_value == '51' %}{% set display_s_value = 'пятьдесят одну' %}
+            {% elif s_value == '22' %}{% set display_s_value = 'двадцать две' %}
+            {% elif s_value == '32' %}{% set display_s_value = 'тридцать две' %}
+            {% elif s_value == '42' %}{% set display_s_value = 'сорок две' %}
+            {% elif s_value == '52' %}{% set display_s_value = 'пятьдесят две' %}
+            {% endif %}
+          {% endif %}
+          
+          {% if s_unit %}
+            {% set text_parts = text_parts + [display_s_value ~ ' ' ~ s_unit] %}
+          {% endif %}
+        {% endif %}
+        
+        {# --- ФИНАЛЬНАЯ СБОРКА --- #}
+        {% set name = slots.name | default('') %}
+        {% set final_text = '' %}
+        {% if text_parts | length == 1 %}
+          {% set final_text = text_parts[0] %}
+        {% elif text_parts | length == 2 %}
+          {% set final_text = text_parts[0] ~ ' и ' ~ text_parts[1] %}
+        {% else %}
+          {% set final_text = text_parts[:-1] | join(', ') ~ ' и ' ~ text_parts[-1] %}
+        {% endif %}
+        Таймер {{ name }} на {{ final_text }} заведён.
+      command: >
+        {% set text_parts = [] %}
+        
+        {% if slots.hours is defined and slots.hours not in ['None', None] %}
+        {% set h_value = slots.hours | string %}
+        {% set h_unit = 'часов' %}
+        {% set h_num_val = 0 %}
+        {% if h_value.isdigit() %}{% set h_num_val = h_value | int %}{% endif %}
+        
+        {% if h_num_val % 10 == 1 and h_num_val != 11 %}
+          {% set h_unit = 'час' %}
+        {% elif h_num_val % 10 in [2, 3, 4] and h_num_val not in [12, 13, 14] %}
+          {% set h_unit = 'часа' %}
+        {% endif %}
+        {% set text_parts = text_parts + [h_value ~ ' ' ~ h_unit] %}
+        {% endif %}
+        
+        {% if slots.minutes is defined and slots.minutes not in ['None', None] %}
+        {% set m_value = slots.minutes | string %}
+        {% set display_m_value = m_value %}
+        {% set m_unit = '' %}
+        {% set m_num_val = 0 %}
+        
+        {% if m_value.isdigit() %}
+          {% set m_num_val = m_value | int %}
+        {% else %}
+          {% set last_word = m_value.lower().split(' ') | last %}
+          {% set num_map = {
+            'один': 1, 'одну': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4,
+            'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9,
+            'десять': 10, 'одиннадцать': 11, 'двенадцать': 12, 'тринадцать': 13,
+            'четырнадцать': 14, 'пятнадцать': 15, 'шестнадцать': 16,
+            'семнадцать': 17, 'восемнадцать': 18, 'девятнадцать': 19,
+            'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50} %}
+          {% if last_word in num_map %}
+            {% set m_num_val = num_map[last_word] %}
+          {% endif %}
+        {% endif %}
+        
+        {% if m_num_val % 10 == 1 and m_num_val != 11 %}
+          {% set m_unit = 'минуту' %}
+        {% elif m_num_val % 10 in [2, 3, 4] and m_num_val not in [12, 13, 14] %}
+          {% set m_unit = 'минуты' %}
+        {% else %}
+          {% set m_unit = 'минут' %}
+        {% endif %}
+        
+        {% if m_value.isdigit() %}
+          {% if m_value == '1' %}{% set display_m_value = 'одну' %}
+          {% elif m_value == '2' %}{% set display_m_value = 'две' %}
+          {% elif m_value == '21' %}{% set display_m_value = 'двадцать одну' %}
+          {% elif m_value == '31' %}{% set display_m_value = 'тридцать одну' %}
+          {% elif m_value == '41' %}{% set display_m_value = 'сорок одну' %}
+          {% elif m_value == '51' %}{% set display_m_value = 'пятьдесят одну' %}
+          {% elif m_value == '22' %}{% set display_m_value = 'двадцать две' %}
+          {% elif m_value == '32' %}{% set display_m_value = 'тридцать две' %}
+          {% elif m_value == '42' %}{% set display_m_value = 'сорок две' %}
+          {% elif m_value == '52' %}{% set display_m_value = 'пятьдесят две' %}
+          {% endif %}
+        {% endif %}
+        
+        {% if m_unit %}
+          {% set text_parts = text_parts + [display_m_value ~ ' ' ~ m_unit] %}
+        {% endif %}
+        {% endif %}
+        
+        {% if slots.seconds is defined and slots.seconds not in ['None', None] %}
+        {% set s_value = slots.seconds | string %}
+        {% set display_s_value = s_value %}
+        {% set s_unit = '' %}
+        {% set s_num_val = 0 %}
+        
+        {% if s_value.isdigit() %}
+          {% set s_num_val = s_value | int %}
+        {% else %}
+          {% set last_word = s_value.lower().split(' ') | last %}
+          {% set num_map = {
+            'один': 1, 'одну': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4,
+            'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9,
+            'десять': 10, 'одиннадцать': 11, 'двенадцать': 12, 'тринадцать': 13,
+            'четырнадцать': 14, 'пятнадцать': 15, 'шестнадцать': 16,
+            'семнадцать': 17, 'восемнадцать': 18, 'девятнадцать': 19,
+            'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50} %}
+          {% if last_word in num_map %}
+            {% set s_num_val = num_map[last_word] %}
+          {% endif %}
+        {% endif %}
+        
+        {% if s_num_val % 10 == 1 and s_num_val != 11 %}
+          {% set s_unit = 'секунду' %}
+        {% elif s_num_val % 10 in [2, 3, 4] and s_num_val not in [12, 13, 14] %}
+          {% set s_unit = 'секунды' %}
+        {% else %}
+          {% set s_unit = 'секунд' %}
+        {% endif %}
+        
+        {% if s_value.isdigit() %}
+          {% if s_value == '1' %}{% set display_s_value = 'одну' %}
+          {% elif s_value == '2' %}{% set display_s_value = 'две' %}
+          {% elif s_value == '21' %}{% set display_s_value = 'двадцать одну' %}
+          {% elif s_value == '31' %}{% set display_s_value = 'тридцать одну' %}
+          {% elif s_value == '41' %}{% set display_s_value = 'сорок одну' %}
+          {% elif s_value == '51' %}{% set display_s_value = 'пятьдесят одну' %}
+          {% elif s_value == '22' %}{% set display_s_value = 'двадцать две' %}
+          {% elif s_value == '32' %}{% set display_s_value = 'тридцать две' %}
+          {% elif s_value == '42' %}{% set display_s_value = 'сорок две' %}
+          {% elif s_value == '52' %}{% set display_s_value = 'пятьдесят две' %}
+          {% endif %}
+        {% endif %}
+        
+        {% if s_unit %}
+          {% set text_parts = text_parts + [display_s_value ~ ' ' ~ s_unit] %}
+        {% endif %}
+        {% endif %}
+        
+        {% set name = slots.name | default('') %}
+        {% set final_text = '' %}
+        {% if text_parts | length == 1 %}
+        {% set final_text = text_parts[0] %}
+        {% elif text_parts | length == 2 %}
+        {% set final_text = text_parts[0] ~ ' и ' ~ text_parts[1] %}
+        {% else %}
+        {% set final_text = text_parts[:-1] | join(', ') ~ ' и ' ~ text_parts[-1] %}
+        {% endif %}
+          Команда будет выполнена через {{ final_text }}
